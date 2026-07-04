@@ -6,5 +6,6 @@ from .user import User
 from .session import SessionToken
 from .deleted import DeletedEmail
 from .setting import Setting
+from .backup_code import BackupCode
 
-__all__ = ["Email", "Account", "Attachment", "Folder", "User", "SessionToken", "DeletedEmail", "Setting"]
+__all__ = ["Email", "Account", "Attachment", "Folder", "User", "SessionToken", "DeletedEmail", "Setting", "BackupCode"]

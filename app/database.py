@@ -146,6 +146,20 @@ def _migrate_schema():
         ")"
     ))
 
+    # Create backup_codes table
+    conn.execute(text(
+        "CREATE TABLE IF NOT EXISTS backup_codes ("
+        "  id SERIAL PRIMARY KEY,"
+        "  user_id INTEGER NOT NULL REFERENCES users(id),"
+        "  code_hash VARCHAR(128) NOT NULL,"
+        "  used BOOLEAN NOT NULL DEFAULT FALSE,"
+        "  created_at TIMESTAMP NOT NULL DEFAULT NOW()"
+        ")"
+    ))
+    conn.execute(text(
+        "CREATE INDEX IF NOT EXISTS idx_backup_codes_user ON backup_codes(user_id)"
+    ))
+
     # Performance indexes
     conn.execute(text("CREATE INDEX IF NOT EXISTS idx_emails_folder ON emails(folder)"))
     conn.execute(text("CREATE INDEX IF NOT EXISTS idx_emails_account_folder ON emails(account_id, folder)"))

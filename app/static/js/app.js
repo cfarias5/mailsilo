@@ -49,6 +49,10 @@ document.addEventListener("click", (e) => {
   switch (action) {
     case "login": doLogin(); break;
     case "setup": doSetup(); break;
+    case "show-backup-reset": renderBackupCodeReset(); break;
+    case "backup-reset-submit": doBackupCodeReset(); break;
+    case "backup-codes-done": location.reload(); break;
+    case "back-to-login": renderLoginForm(); break;
     case "nav": navigate(el.dataset.view); break;
 
     // Inbox
@@ -122,6 +126,8 @@ document.addEventListener("keydown", (e) => {
     if (loginInput) doLogin();
     const setupInput = e.target.closest("#setupConfirm");
     if (setupInput) doSetup();
+    const backupResetInput = e.target.closest("#backupResetConfirm");
+    if (backupResetInput) doBackupCodeReset();
   }
 });
 

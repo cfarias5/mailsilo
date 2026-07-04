@@ -10,7 +10,7 @@ from typing import Optional
 import bcrypt
 
 from app.database import get_session
-from app.models import User, SessionToken
+from app.models import User, SessionToken, BackupCode
 
 logger = logging.getLogger(__name__)
 
@@ -171,5 +171,119 @@ def cleanup_expired_sessions() -> int:
         if deleted:
             logger.info("Cleaned up %d expired sessions", deleted)
         return deleted
+    finally:
+        session.close()
+
+
+# =========================================================
+# BACKUP CODES
+# =========================================================
+
+BACKUP_CODE_COUNT = 10
+BACKUP_CODE_LENGTH = 4
+BACKUP_CODE_GROUPS = 3
+
+
+def _generate_code() -> str:
+    chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+    groups = []
+    for _ in range(BACKUP_CODE_GROUPS):
+        group = "".join(secrets.choice(chars) for _ in range(BACKUP_CODE_LENGTH))
+        groups.append(group)
+    return "-".join(groups)
+
+
+def generate_backup_codes(user_id: int, count: int = BACKUP_CODE_COUNT) -> list[str]:
+    session = get_session()
+    try:
+        codes = []
+        for _ in range(count):
+            plain = _generate_code()
+            hashed = _hash_password(plain)
+            bc_ = BackupCode(user_id=user_id, code_hash=hashed)
+            session.add(bc_)
+            codes.append(plain)
+        session.commit()
+        logger.info("Generated %d backup codes for user_id=%d", count, user_id)
+        return codes
+    finally:
+        session.close()
+
+
+def _get_available_backup_codes(username: str) -> list[BackupCode]:
+    session = get_session()
+    try:
+        user = session.query(User).filter(User.username == username).first()
+        if not user:
+            return []
+        codes = (
+            session.query(BackupCode)
+            .filter(BackupCode.user_id == user.id, BackupCode.used == False)
+            .all()
+        )
+        return codes
+    finally:
+        session.close()
+
+
+def verify_and_use_backup_code(username: str, code: str) -> Optional[int]:
+    session = get_session()
+    try:
+        user = session.query(User).filter(User.username == username).first()
+        if not user:
+            return None
+        codes = (
+            session.query(BackupCode)
+            .filter(BackupCode.user_id == user.id, BackupCode.used == False)
+            .all()
+        )
+        for bc_ in codes:
+            if _verify_password(code, bc_.code_hash):
+                bc_.used = True
+                session.commit()
+                logger.info("Backup code used for user: %s", username)
+                return user.id
+        return None
+    finally:
+        session.close()
+
+
+def reset_password_with_backup_code(username: str, code: str, new_password: str) -> bool:
+    user_id = verify_and_use_backup_code(username, code)
+    if not user_id:
+        return False
+    session = get_session()
+    try:
+        user = session.query(User).filter(User.id == user_id).first()
+        user.password_hash = _hash_password(new_password)
+        session.commit()
+        logger.info("Password reset via backup code for user: %s", username)
+        return True
+    finally:
+        session.close()
+
+
+def remaining_backup_codes(username: str) -> int:
+    session = get_session()
+    try:
+        user = session.query(User).filter(User.username == username).first()
+        if not user:
+            return 0
+        count = (
+            session.query(BackupCode)
+            .filter(BackupCode.user_id == user.id, BackupCode.used == False)
+            .count()
+        )
+        return count
+    finally:
+        session.close()
+
+
+def invalidate_backup_codes(user_id: int) -> None:
+    session = get_session()
+    try:
+        session.query(BackupCode).filter(BackupCode.user_id == user_id).delete()
+        session.commit()
+        logger.info("Backup codes invalidated for user_id=%d", user_id)
     finally:
         session.close()

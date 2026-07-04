@@ -14,6 +14,11 @@ async function renderSettings() {
     authEnabled = status.auth_enabled !== false;
   } catch (e) {}
 
+  // Get current user info (for admin check)
+  let currentUser = null;
+  try { currentUser = await api("/api/auth/me"); } catch (e) {}
+  const isAdmin = currentUser && currentUser.authenticated && currentUser.is_admin;
+
   // Get global SMTP settings
   let smtp = { server: "", port: 587, use_ssl: true, username: "", has_password: false };
   try { smtp = await api("/api/settings/smtp"); } catch (e) {}
@@ -59,6 +64,40 @@ async function renderSettings() {
             ? "Login required to access MailSilo"
             : "Anyone can access without a password"}
         </div>
+        <div style="margin-top:.5rem;border-top:1px solid var(--border);padding-top:.5rem">
+          <h4 style="font-size:.82rem;margin:0 0 .5rem .75rem">🔑 Change password</h4>
+          <div class="settings-row">
+            <label>Current password</label>
+            <input class="settings-input" id="changePwCurrent" type="password" style="max-width:250px">
+          </div>
+          <div class="settings-row">
+            <label>New password</label>
+            <input class="settings-input" id="changePwNew" type="password" style="max-width:250px">
+          </div>
+          <div class="settings-row">
+            <label>Confirm new</label>
+            <input class="settings-input" id="changePwConfirm" type="password" style="max-width:250px">
+          </div>
+          <div class="settings-row">
+            <label></label>
+            <button class="btn-sm primary" onclick="doChangePassword()">💾 Change password</button>
+          </div>
+          <div id="changePwResult" style="font-size:.78rem;padding:.3rem .75rem"></div>
+        </div>
+        ${isAdmin ? `
+        <div style="margin-top:.5rem;border-top:1px solid var(--border);padding-top:.5rem">
+          <h4 style="font-size:.82rem;margin:0 0 .5rem .75rem">🔑 Backup codes</h4>
+          <div class="settings-row">
+            <label>Username</label>
+            <input class="settings-input" id="adminBackupUser" placeholder="Enter username" style="max-width:250px">
+          </div>
+          <div class="settings-row">
+            <label></label>
+            <button class="btn-sm primary" onclick="adminGenerateBackupCodes()">🔐 Generate new backup codes</button>
+          </div>
+          <div id="adminBackupResult" style="font-size:.78rem;padding:.3rem .75rem"></div>
+        </div>
+        ` : ""}
       </div>
 
       <div class="settings-section">
@@ -381,6 +420,58 @@ async function testSmtp() {
     setTimeout(() => msg.textContent = "", 5000);
   } catch (e) {
     msg.textContent = `❌ ${e.message}`;
+  }
+}
+
+async function adminGenerateBackupCodes() {
+  const username = $("#adminBackupUser").value.trim();
+  const result = $("#adminBackupResult");
+  if (!username) {
+    result.textContent = "❌ Enter a username";
+    return;
+  }
+  result.textContent = "Generating...";
+  try {
+    const data = await api("/api/auth/admin-generate-backup-codes", {
+      method: "POST",
+      body: JSON.stringify({ username }),
+    });
+    const list = data.backup_codes.map(c => `<code style="display:block;font-size:.8rem;letter-spacing:1px">${esc(c)}</code>`).join("");
+    result.innerHTML = `
+      <div style="background:var(--danger-bg,#fff3cd);color:var(--danger,#856404);padding:.4rem;border-radius:4px;font-size:.75rem;margin-bottom:.3rem">⚠️ Show these to the user only once. Old codes are invalidated.</div>
+      ${list}`;
+  } catch (e) {
+    result.textContent = `❌ ${e.message}`;
+  }
+}
+
+async function doChangePassword() {
+  const current = $("#changePwCurrent").value;
+  const pw = $("#changePwNew").value;
+  const confirm = $("#changePwConfirm").value;
+  const result = $("#changePwResult");
+
+  if (!current) { result.textContent = "❌ Enter your current password"; return; }
+  if (pw.length < 8) { result.textContent = "❌ Password must be at least 8 characters"; return; }
+  if (!/[A-Z]/.test(pw) || !/[a-z]/.test(pw) || !/[0-9]/.test(pw)) {
+    result.textContent = "❌ Password must include uppercase, lowercase and a number";
+    return;
+  }
+  if (pw !== confirm) { result.textContent = "❌ Passwords do not match"; return; }
+
+  result.textContent = "Changing...";
+  try {
+    const data = await api("/api/auth/change-password", {
+      method: "PUT",
+      body: JSON.stringify({ current_password: current, new_password: pw }),
+    });
+    $("#changePwCurrent").value = "";
+    $("#changePwNew").value = "";
+    $("#changePwConfirm").value = "";
+    result.textContent = "✅ Password changed successfully";
+    setTimeout(() => result.textContent = "", 5000);
+  } catch (e) {
+    result.textContent = `❌ ${e.message}`;
   }
 }
 
