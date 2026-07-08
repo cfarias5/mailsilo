@@ -16,7 +16,7 @@ from app.models.attachment import ATTACHMENT_STORAGE
 
 class EmailService:
     @staticmethod
-    def list_emails(session: Session, q: Optional[str] = None, folder: Optional[str] = None, 
+    def list_emails(session: Session, q: Optional[str] = None, folder: Optional[str] = None,
                     account_id: Optional[int] = None, page: int = 1, per_page: int = 50,
                     sort_by: str = "date", sort_order: str = "desc"):
         # La lógica de filtrado de list_emails se moverá aquí
@@ -32,23 +32,23 @@ class EmailService:
         email = session.query(Email).filter(Email.id == email_id).first()
         if not email:
             return False
-        
+
         existing = session.query(DeletedEmail).filter(
             DeletedEmail.account_id == email.account_id,
             DeletedEmail.message_id == email.message_id,
             DeletedEmail.folder == email.folder,
         ).first()
-        
+
         if not existing and email.message_id:
             session.add(DeletedEmail(
                 account_id=email.account_id,
                 message_id=email.message_id,
                 folder=email.folder,
             ))
-        
+
         session.query(Attachment).filter(Attachment.email_id == email_id).delete()
         session.delete(email)
-        
+
         try:
             import shutil
             shutil.rmtree(os.path.join(ATTACHMENT_STORAGE, str(email_id)))
@@ -132,7 +132,7 @@ class EmailService:
         if not smtp_cfg.get("server"):
             raise ValueError("Servidor SMTP no configurado. Ve a Configuración → Reenvío de correos (SMTP).")
 
-        from_email = smtp_cfg.get("username", "") or "noreply@mailsilo.local"
+        from_email = smtp_cfg.get("from_address", "") or "Mailsilo <noreply@mailsilo.local>"
         subject = email_obj.subject or "(sin asunto)"
 
         msg = MIMEMultipart("mixed")
@@ -167,7 +167,7 @@ class EmailService:
         part.add_header("Content-Disposition", "attachment", filename=f"{subject}.eml")
         msg.attach(part)
 
-        smtp_username = smtp_cfg.get("username", "") or from_email
+        smtp_username = smtp_cfg.get("username", "") or "noreply@mailsilo.local"
         smtp_password = smtp_cfg.get("password", "")
         from app.crypto import decrypt
         smtp_password = decrypt(smtp_password)

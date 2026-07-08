@@ -20,7 +20,7 @@ async function renderSettings() {
   const isAdmin = currentUser && currentUser.authenticated && currentUser.is_admin;
 
   // Get global SMTP settings
-  let smtp = { server: "", port: 587, use_ssl: true, username: "", has_password: false };
+  let smtp = { server: "", port: 587, use_ssl: true, from_address: "", username: "", has_password: false };
   try { smtp = await api("/api/settings/smtp"); } catch (e) {}
 
   const themeOpts = [
@@ -111,6 +111,7 @@ async function renderSettings() {
             <span class="switch-slider"></span>
           </label>
         </div>
+        <div class="settings-row"><label>From Address</label><input class="settings-input" id="smtpFromAddress" value="${esc(smtp.from_address)}" placeholder="Mailsilo <you@email.com>"></div>
         <div class="settings-row"><label>Username</label><input class="settings-input" id="smtpUser" value="${esc(smtp.username)}" placeholder="you@email.com"></div>
         <div class="settings-row"><label>Password</label><input class="settings-input" id="smtpPassword" type="password" placeholder="${esc(pwPlaceholder)}"></div>
         <div style="padding:.3rem .75rem;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
@@ -479,6 +480,7 @@ async function saveSmtp() {
   const server = $("#smtpServer").value.trim();
   const port = parseInt($("#smtpPort").value) || 587;
   const use_ssl = $("#smtpSsl").checked;
+  const from_address= $("#smtpFromAddress").value.trim();
   const username = $("#smtpUser").value.trim();
   const password = $("#smtpPassword").value;
   const msg = $("#smtpSaveMsg");
@@ -486,7 +488,7 @@ async function saveSmtp() {
   try {
     await api("/api/settings/smtp", {
       method: "PUT",
-      body: JSON.stringify({ server, port, use_ssl, username, password }),
+      body: JSON.stringify({ server, port, use_ssl, from_address, username, password }),
     });
     $("#smtpPassword").value = "";
     msg.textContent = "✅ Saved";

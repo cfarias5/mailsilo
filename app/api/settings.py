@@ -96,6 +96,7 @@ class SmtpSettings(BaseModel):
     server: str = ""
     port: int = 587
     use_ssl: bool = True
+    from_address: str = ""
     username: str = ""
     password: str = ""
 
@@ -114,6 +115,7 @@ def get_smtp_settings():
             "server": data.get("server", ""),
             "port": data.get("port", 587),
             "use_ssl": data.get("use_ssl", True),
+            "from_address": data.get("from_address", ""),
             "username": data.get("username", ""),
             "has_password": bool(data.get("password")),
         }
@@ -141,6 +143,7 @@ def update_smtp_settings(data: SmtpSettings):
         existing["server"] = data.server
         existing["port"] = data.port
         existing["use_ssl"] = data.use_ssl
+        existing["from_address"] = data.from_address
         existing["username"] = data.username
         value = json.dumps(existing)
         if row:
@@ -167,6 +170,7 @@ def test_smtp_settings():
         server_host = smtp_cfg.get("server", "")
         port = smtp_cfg.get("port", 587)
         use_ssl = smtp_cfg.get("use_ssl", True)
+        from_address = smtp_cfg.get("from_address", "")
         username = smtp_cfg.get("username", "")
         password = smtp_cfg.get("password", "")
         if not server_host:
